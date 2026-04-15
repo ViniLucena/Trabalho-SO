@@ -34,6 +34,14 @@ typedef enum
 
 typedef struct
 {
+    int id;          // quem esta pedindo
+    int device;      // DEV_D1 ou DEV_D2
+    char op;         //'R','W' ou 'X'
+    int mem_address; // endereco de memoria acessado
+} SyscallRequest;
+
+typedef struct
+{
     pid_t pid;          // PID do processo
     int id;             // ID simulado (1 a 5)
     int pc;             // program counter (0 ate max)
