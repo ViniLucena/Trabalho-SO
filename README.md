@@ -79,8 +79,8 @@ As aplicações precisam escrever a SyscallRequest no pipe. O kernel recebe esse
 **Por que usamos a flag `dev_liberado` no handle_irq?**
 O enunciado exige que um IRQ libere apenas o primeiro processo bloqueado naquele dispositivo (FIFO). A flag impede que o loop continue liberando outros processos depois do primeiro.
 
-**Por que o SIGALRM no handle_display?**
-Quando o usuário aperta Ctrl+Z, o sistema exibe o estado e precisa ficar pausado até retomar. Usamos `alarm(5)` + `pause()` para retomar automaticamente após 5 segundos, usando o SIGALRM ensinado no Lab 3. O `alarm(0)` após o `pause()` cancela qualquer alarme residual (também ensinado no Lab 3 — "Se alarm = 0, desarma o alarme").
+**Por que o `sleep(5)` no handle_display?**
+Quando o usuário aperta Ctrl+Z, o sistema exibe o estado e precisa ficar pausado para leitura. Usamos sleep(5) para suspender o kernel por 5 segundos antes de retomar, usando a função ensinada no Lab 3. É a solução mais simples e direta para o problema.
 
 **Limitação conhecida — PC e last_mem desatualizados no timeslice:**
 O PC e a última memória do PCB só são atualizados quando o processo faz uma syscall (porque aí ele manda esses dados pelo pipe). Em trocas de contexto por IRQ0, o kernel não tem como saber o PC atual da aplicação sem memória compartilhada. Para o escopo do trabalho isso é aceitável — vale mencionar na apresentação para mostrar que entendemos a limitação.

@@ -209,10 +209,8 @@ void handle_display(int sig)
         printf("\nD1=%d D2=%d\n", pcb_table[i].io_count[0], pcb_table[i].io_count[1]);
     }
     printf("\nsistema retomando em 5 segundos\n");
-    signal(SIGALRM, SIG_DFL);        // acorda o pause()
-    alarm(5);                        // dispara SIGALRM em 5 segundos
-    pause();                         // dorme ate o proximo sinal
-    alarm(0);                        // cancela alarme residual
+    sleep(5);
+    printf("\nretomando\n");
     signal(SIGTSTP, handle_display); // reinstala o handler
     // retoma o processo que estava rodando
     if (running_process_idx != -1 && pcb_table[running_process_idx].state == RUNNING)
