@@ -38,6 +38,7 @@ typedef struct
     int device;      // DEV_D1 ou DEV_D2
     char op;         //'R','W' ou 'X'
     int mem_address; // endereco de memoria acessado
+    int pc;          // para o kernel saber onde a aplicacao esta
 } SyscallRequest;
 
 typedef struct

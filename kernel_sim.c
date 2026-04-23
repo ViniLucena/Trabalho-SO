@@ -18,6 +18,7 @@ int running_process_idx = -1;
 void handle_syscall(int sig);
 void handle_irq(int sig);
 void scheduler(void);
+void handle_display(int sig);
 
 int main(int argc, char *argv[])
 {
@@ -31,6 +32,7 @@ int main(int argc, char *argv[])
     int fd_syscalls_write = atoi(argv[3]);
     signal(SIGUSR1, handle_syscall);
     signal(SIGUSR2, handle_irq);
+    signal(SIGTSTP, handle_display); // handler para ctrl+Z
 
     printf("kernel inicializado. FDs: Sys=%d, IRQ=%d\n", fd_syscalls, fd_irqs);
     // loop de criacao de processos
@@ -80,12 +82,15 @@ void handle_syscall(int sig)
     // lendo a estrutura do pedido vinda do pipe de syscall
     if (read(fd_syscalls, &req, sizeof(SyscallRequest)) > 0)
     {
-        /* code */
         printf("kernel: syscall de A%d para disp %d (Op %c)\n", req.id, req.device, req.op);
 
         // o processo que pediu entrada/saida deve ser bloqueado imediatamente
         if (running_process_idx != -1)
         {
+            // salva os dados para exibicao
+            pcb_table[running_process_idx].pc = req.pc;
+            pcb_table[running_process_idx].last_mem = req.mem_address;
+
             pcb_table[running_process_idx].state = BLOCKED;
             pcb_table[running_process_idx].block_device = req.device;
             pcb_table[running_process_idx].block_op = req.op;
@@ -156,14 +161,60 @@ void handle_irq(int sig)
             printf("kernel: recebido IRQ%d ; processo de entrada/saida finalizado no disp %d\n", irq_type, dev);
 
             // procura quem estava bloqueado por esse dispositivo e libera
-            for (int i = 0; i < N_PROCESSOS; i++)
+            int dev_liberado = 0; // variavel de controle
+            for (int i = 0; i < N_PROCESSOS && dev_liberado == 0; i++)
             {
                 if (pcb_table[i].state == BLOCKED && pcb_table[i].block_device == dev)
                 {
                     pcb_table[i].state = READY;
                     printf("kernel: processo A%d desbloqueado\n", pcb_table[i].id);
+                    dev_liberado = 1; // impede que o proximo processo seja liberado
                 }
             }
         }
     }
+}
+
+void handle_display(int sig)
+{
+    // pausa o processo que estava rodando
+    if (running_process_idx != -1 && pcb_table[running_process_idx].state == RUNNING)
+        kill(pcb_table[running_process_idx].pid, SIGSTOP);
+    printf("\n-----------ESTADO DOS PROCESSOS-----------\n");
+    for (int i = 0; i < N_PROCESSOS; i++)
+    {
+        char *estado;
+        if (pcb_table[i].state == READY)
+        {
+            estado = "PRONTO";
+        }
+        else if (pcb_table[i].state == RUNNING)
+        {
+            estado = "EXECUTANDO";
+        }
+        else if (pcb_table[i].state == BLOCKED)
+        {
+            estado = "BLOQUEADO";
+        }
+        else
+        {
+            estado = "TERMINADO";
+        }
+        printf("A%d -- PC=%d -- mem=m%02d -- estado = %s\n", pcb_table[i].id, pcb_table[i].pc, pcb_table[i].last_mem, estado);
+
+        if (pcb_table[i].state == BLOCKED)
+        {
+            printf("\ndisp=D%d op=%c\n", pcb_table[i].block_device + 1, pcb_table[i].block_op);
+        }
+        printf("\nD1=%d D2=%d\n", pcb_table[i].io_count[0], pcb_table[i].io_count[1]);
+    }
+    printf("\nsistema retomando em 5 segundos\n");
+    signal(SIGALRM, SIG_DFL);        // acorda o pause()
+    alarm(5);                        // dispara SIGALRM em 5 segundos
+    pause();                         // dorme ate o proximo sinal
+    alarm(0);                        // cancela alarme residual
+    signal(SIGTSTP, handle_display); // reinstala o handler
+    // retoma o processo que estava rodando
+    if (running_process_idx != -1 && pcb_table[running_process_idx].state == RUNNING)
+        kill(pcb_table[running_process_idx].pid, SIGCONT);
 }

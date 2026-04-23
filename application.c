@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
             req.device = device;
             req.op = op;
             req.mem_address = mem;
+            req.pc = pc;
             // escrevendo o pedido do pipe
             int pipe_fd = atoi(argv[2]);
             write(pipe_fd, &req, sizeof(SyscallRequest));
