@@ -21,19 +21,19 @@ void scheduler(void);
 
 int main(int argc, char *argv[])
 {
-    if (argc < 3)
+    if (argc < 4)
     {
         printf("erro: o kernel precisa dos FDs dos pipes\n");
         exit(1);
     }
     fd_syscalls = atoi(argv[1]);
     fd_irqs = atoi(argv[2]);
-
+    int fd_syscalls_write = atoi(argv[3]);
     signal(SIGUSR1, handle_syscall);
     signal(SIGUSR2, handle_irq);
 
     printf("kernel inicializado. FDs: Sys=%d, IRQ=%d\n", fd_syscalls, fd_irqs);
-
+    // loop de criacao de processos
     for (int i = 0; i < N_PROCESSOS; i++)
     {
         pid_t pid = fork();
@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
         {
             /* codigo do filho: se transforma na aplicacao */
             char id_str[2], fd_str[10];
-            sprintf(id_str, "%d", i + 1);       // IDs de 1 a 5 ao inves do intervalo de 0 a 4
-            sprintf(fd_str, "%d", fd_syscalls); // aplicacao precisa escrever no pipe de syscalls
+            sprintf(id_str, "%d", i + 1);             // IDs de 1 a 5 ao inves do intervalo de 0 a 4
+            sprintf(fd_str, "%d", fd_syscalls_write); // aplicacao precisa escrever no pipe de syscalls
 
             char *args[] = {"./application", id_str, fd_str, NULL};
             execv(args[0], args);
@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
         }
     }
     printf("todos os processos foram criados e suspensos. Iniciando o escalonador\n");
+    // inicia o escalonador
+    scheduler();
     while (1)
     {
         pause(); // espera por qualquer sinal, IRQ ou Syscall
@@ -151,7 +153,7 @@ void handle_irq(int sig)
             {
                 dev = DEV_D2;
             }
-            printf("kernel: recebido IRQ%d ; processo de entrada/saida finalizado no disp %d", irq_type, dev);
+            printf("kernel: recebido IRQ%d ; processo de entrada/saida finalizado no disp %d\n", irq_type, dev);
 
             // procura quem estava bloqueado por esse dispositivo e libera
             for (int i = 0; i < N_PROCESSOS; i++)

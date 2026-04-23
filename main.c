@@ -18,7 +18,7 @@ int main(void)
     int pipe_syscalls[2];
     int pipe_irqs[2];
     // arrays de char para conversao dos numeros para strings (10 espaços para dar margem de segurança)
-    char str_fd_syscalls[10], str_fd_irqs[10], str_kernel_pid[10];
+    char str_fd_syscalls[10], str_fd_irqs[10], str_kernel_pid[10], str_fd_syscalls_write[10];
     // criando pipes antes do for
     if (pipe(pipe_syscalls) == -1 || pipe(pipe_irqs) == -1)
     {
@@ -36,11 +36,13 @@ int main(void)
         /* codigo do KernelSim */
 
         printf("\nprocesso filho: kernel\n");
-        // Converte o FD de LEITURA (índice 0) dos dois pipes para string
+        // converte o FD de LEITURA (indice 0) dos dois pipes para string
         sprintf(str_fd_syscalls, "%d", pipe_syscalls[0]);
         sprintf(str_fd_irqs, "%d", pipe_irqs[0]);
-        // passa os FDs como argumentos: argv[1] e argv[2]
-        char *args[] = {"./kernel_sim", str_fd_syscalls, str_fd_irqs, NULL};
+        // convertendo o FD de ESCRITA (indice 1) para o kernel repassar às aplicacoes
+        sprintf(str_fd_syscalls_write, "%d", pipe_syscalls[1]);
+        // passa os FDs como argumentos: argv[1], argv[2] e argv[3]
+        char *args[] = {"./kernel_sim", str_fd_syscalls, str_fd_irqs, str_fd_syscalls_write, NULL};
         execv(args[0], args);                   // executa o kernel_sim
         perror("falha ao executar kernel_sim"); // se chegou aqui, execv deu erro
         exit(1);
