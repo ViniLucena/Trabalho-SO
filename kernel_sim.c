@@ -209,7 +209,13 @@ void handle_display(int sig)
         printf("\nD1=%d D2=%d\n", pcb_table[i].io_count[0], pcb_table[i].io_count[1]);
     }
     printf("\nsistema retomando em 5 segundos\n");
+    // ignora os sinais durante o sleep para nao ser acordado antes da hora
+    signal(SIGUSR1, SIG_IGN);
+    signal(SIGUSR2, SIG_IGN);
     sleep(5);
+    // reinstala os handlers normais
+    signal(SIGUSR1, handle_syscall);
+    signal(SIGUSR2, handle_irq);
     printf("\nretomando\n");
     signal(SIGTSTP, handle_display); // reinstala o handler
     // retoma o processo que estava rodando

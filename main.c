@@ -12,7 +12,7 @@ e exec. Deve garantir que o sistema inicie corretamente e limpe os processos ao 
 
 int main(void)
 {
-
+    signal(SIGTSTP, SIG_IGN); // impede o shell de suspender o main
     pid_t pid_kernel, pid_controller;
     // variaveis para os pipes (arrays de dois ints)
     int pipe_syscalls[2];

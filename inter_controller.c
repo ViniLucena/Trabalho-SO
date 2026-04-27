@@ -9,6 +9,7 @@ em loops infinitos com as probabilidades e tempos solicitados.*/
 
 int main(int argc, char *argv[])
 {
+    signal(SIGTSTP, SIG_IGN); // inter_controller nao deve ser suspenso pelo ctrl+z
     if (argc < 3)
     {
         printf("\nErro: %s <pid_kernel> <pipe_irq_fd>\n", argv[0]);
