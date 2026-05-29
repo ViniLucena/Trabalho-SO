@@ -69,7 +69,7 @@ int main(void)
     }
 
     // codigo do pai
-    printf("\nprocesso pai: criei o kernelSim (PID %d) e criei o controlador (PID %d)", pid_kernel, pid_controller);
+    printf("\nprocesso pai: criei o kernelSim (PID %d) e criei o controlador (PID %d)\n", pid_kernel, pid_controller);
     // fecha os pipes pois o processo pai nao os usa
     close(pipe_syscalls[0]);
     close(pipe_syscalls[1]);
