@@ -82,27 +82,28 @@ void handle_syscall(int sig)
     // lendo a estrutura do pedido vinda do pipe de syscall
     if (read(fd_syscalls, &req, sizeof(SyscallRequest)) > 0)
     {
+        // identifica quem enviou a mensagem
+        int idx = req.id - 1;
         printf("kernel: syscall de A%d para disp %d (Op %c)\n", req.id, req.device, req.op);
 
-        // o processo que pediu entrada/saida deve ser bloqueado imediatamente
-        if (running_process_idx != -1)
+        // salva os dados para exibicao
+        pcb_table[idx].pc = req.pc;
+        pcb_table[idx].last_mem = req.mem_address;
+
+        pcb_table[idx].state = BLOCKED;
+        pcb_table[idx].block_device = req.device;
+        pcb_table[idx].block_op = req.op;
+
+        // incrementa os dados de uso do dispositivo
+        pcb_table[idx].io_count[req.device]++;
+
+        // pausa a execucao da aplicacao para que ela nao gaste CPU enquanto espera pelo hardware
+        kill(pcb_table[idx].pid, SIGSTOP);
+        // chama o escalonador somente se o processo que acabou de se bloquear for o processo que estava na CPU naquele momento
+        if (idx == running_process_idx)
         {
-            // salva os dados para exibicao
-            pcb_table[running_process_idx].pc = req.pc;
-            pcb_table[running_process_idx].last_mem = req.mem_address;
-
-            pcb_table[running_process_idx].state = BLOCKED;
-            pcb_table[running_process_idx].block_device = req.device;
-            pcb_table[running_process_idx].block_op = req.op;
-
-            // incrementa os dados de uso do dispositivo
-            pcb_table[running_process_idx].io_count[req.device]++;
-
-            // pausa a execucao da aplicacao para que ela nao gaste CPU enquanto espera pelo hardware
-            kill(pcb_table[running_process_idx].pid, SIGSTOP);
+            scheduler();
         }
-        // como o processo atual parou, chamamos o escalonador para iniciar o proximo processo
-        scheduler();
     }
 }
 
