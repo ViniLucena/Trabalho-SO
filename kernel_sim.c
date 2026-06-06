@@ -86,9 +86,22 @@ void handle_syscall(int sig)
         int idx = req.id - 1;
         printf("kernel: syscall de A%d para disp %d (Op %c)\n", req.id, req.device, req.op);
 
-        // salva os dados para exibicao
+        // atualiza o contexto
         pcb_table[idx].pc = req.pc;
         pcb_table[idx].last_mem = req.mem_address;
+
+        // caso seja uma syscall de termino
+        if (pcb_table[idx].state == MSG_FINISHED)
+        {
+            pcb_table[idx].state = FINISHED;
+            printf("kernel: processo A%d terminou (estado=FINISHED)\n", req.id);
+            if (idx == running_process_idx)
+            {
+                running_process_idx = -1;
+                scheduler();
+            }
+            return;
+        }
 
         pcb_table[idx].state = BLOCKED;
         pcb_table[idx].block_device = req.device;

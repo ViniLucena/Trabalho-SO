@@ -57,6 +57,15 @@ int main(int argc, char *argv[])
             kill(getppid(), SIGUSR1);
         }
     }
+    SyscallRequest fin;
+    fin.id = id;
+    fin.op = MSG_FINISHED;
+    fin.pc = pc;
+    fin.mem_address = mem;
+    int pipe_fd = atoi(argv[2]);
+    write(pipe_fd, &fin, sizeof(SyscallRequest));
+    kill(getppid(), SIGUSR1); // acorda o kernel para receber a mensagem
+
     printf("\nprocesso A%d terminado (PC =%d)\n", id, pc);
     return 0;
 }

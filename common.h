@@ -23,6 +23,7 @@ e a estrutura do contexto de processo.
 #define MEM_SIZE 16 // m00 a m15
 #define DEV_D1 0
 #define DEV_D2 1
+#define MSG_FINISHED 'F' // mensagem de fim de processo
 
 typedef enum
 {
@@ -36,7 +37,7 @@ typedef struct
 {
     int id;          // quem esta pedindo
     int device;      // DEV_D1 ou DEV_D2
-    char op;         //'R','W' ou 'X'
+    char op;         //'R','W','X' ou 'F'
     int mem_address; // endereco de memoria acessado
     int pc;          // para o kernel saber onde a aplicacao esta
 } SyscallRequest;
