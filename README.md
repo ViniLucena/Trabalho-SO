@@ -4,10 +4,10 @@ Este roteiro documenta os passos para a extensão do KernelSim com paginação e
 
 ### Etapa 1: Atualização das Estruturas Base (`common.h`)
 
-- [ ] Definir constantes: tamanho da RAM (32), total de páginas (16) e `IRQ3` (3).
-- [ ] Criar a `struct` da Tabela de Páginas (PTE) com: `valid`, `frame`, `modifyBit` e `when` (para LRU/FIFO).
-- [ ] Adicionar no PCB os contadores: `page_faults` e `swap_double_faults`.
-- [ ] Adicionar uma flag na `SyscallRequest` (ex: `is_mem_access` ou `op = 'M'`) para diferenciar acessos de memória de I/O de disco.
+- [x] Definir constantes: tamanho da RAM (32), total de páginas (16) e `IRQ3` (3).
+- [x] Criar a `struct` da Tabela de Páginas (PTE) com: `valid`, `frame`, `modifyBit` e `when` (para LRU/FIFO).
+- [x] Adicionar no PCB os contadores: `page_faults` e `swap_double_faults`.
+- [x] Adicionar uma flag na `SyscallRequest` (ex: `is_mem_access` ou `op = 'M'`) para diferenciar acessos de memória de I/O de disco.
 
 ### Etapa 2: Simulando o Disco de Swap (`inter_controller.c`)
 
