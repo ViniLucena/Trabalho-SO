@@ -11,8 +11,8 @@ Este roteiro documenta os passos para a extensão do KernelSim com paginação e
 
 ### Etapa 2: Simulando o Disco de Swap (`inter_controller.c`)
 
-- [ ] Após gerar o `IRQ0`, adicionar a geração do `IRQ3` com 50% de probabilidade.
-- [ ] Enviar o `IRQ3` via pipe e sinalizar o Kernel com `SIGUSR2`.
+- [x] Após gerar o `IRQ0`, adicionar a geração do `IRQ3` com 50% de probabilidade.
+- [x] Enviar o `IRQ3` via pipe e sinalizar o Kernel com `SIGUSR2`.
 
 ### Etapa 3: A Nova Lógica das Aplicações (`application.c`)
 

@@ -28,6 +28,13 @@ int main(int argc, char *argv[])
         write(pipe_irq_fd, &irq, sizeof(int));
         kill(kernel_pid, SIGUSR2); // SIGUSR2 para interrupcoes de hardware
 
+        if ((rand() % 100) < 50) // trab 2: IRQ3 com 50% de probabilidade
+        {
+            irq = IRQ3;
+            write(pipe_irq_fd, &irq, sizeof(int));
+            kill(kernel_pid, SIGUSR2);
+        }
+
         if ((rand() % 100) < 10) // probabilidade de terminar no disp1 (10%)
         {
             irq = IRQ1;
@@ -42,6 +49,5 @@ int main(int argc, char *argv[])
             kill(kernel_pid, SIGUSR2);
         }
     }
-
     return 0;
 }
