@@ -15,6 +15,11 @@ ProcessControlBlock pcb_table[N_PROCESSOS];
 int fd_syscalls, fd_irqs;
 int running_process_idx = -1;
 
+int blocked_queue_d1[N_PROCESSOS];
+int blocked_queue_d2[N_PROCESSOS];
+int head_d1 = 0, tail_d1 = 0, count_d1 = 0;
+int head_d2 = 0, tail_d2 = 0, count_d2 = 0;
+
 void handle_syscall(int sig);
 void handle_irq(int sig);
 void scheduler(void);
@@ -91,7 +96,7 @@ void handle_syscall(int sig)
         pcb_table[idx].last_mem = req.mem_address;
 
         // caso seja uma syscall de termino
-        if (pcb_table[idx].state == MSG_FINISHED)
+        if (req.op == MSG_FINISHED)
         {
             pcb_table[idx].state = FINISHED;
             printf("kernel: processo A%d terminou (estado=FINISHED)\n", req.id);
@@ -106,9 +111,22 @@ void handle_syscall(int sig)
         pcb_table[idx].state = BLOCKED;
         pcb_table[idx].block_device = req.device;
         pcb_table[idx].block_op = req.op;
-
         // incrementa os dados de uso do dispositivo
         pcb_table[idx].io_count[req.device]++;
+
+        // insere na fila FIFO correta
+        if (req.device == DEV_D1)
+        {
+            blocked_queue_d1[tail_d1] = idx;
+            tail_d1 = (tail_d1 + 1) % N_PROCESSOS; // avança de forma circular
+            count_d1++;
+        }
+        else if (req.device == DEV_D2)
+        {
+            blocked_queue_d2[tail_d2] = idx;
+            tail_d2 = (tail_d2 + 1) % N_PROCESSOS;
+            count_d2++;
+        }
 
         // pausa a execucao da aplicacao para que ela nao gaste CPU enquanto espera pelo hardware
         kill(pcb_table[idx].pid, SIGSTOP);
@@ -161,29 +179,28 @@ void handle_irq(int sig)
             printf("kernel: recebido IRQ0 (timeslice). Trocando processo\n");
             scheduler();
         }
-        else if (irq_type == IRQ1 || irq_type == IRQ2)
+        else if (irq_type == IRQ1)
         {
-            int dev;
-            if (irq_type == IRQ1)
+            // desbloqueia o primeiro da fila D1
+            if (count_d1 > 0) // fila nao vazia
             {
-                dev = DEV_D1;
+                int idx = blocked_queue_d1[head_d1];
+                head_d1 = (head_d1 + 1) % N_PROCESSOS;
+                count_d1--;
+                pcb_table[idx].state = READY;
+                printf("kernel: processo A%d desbloqueado (D1)\n", pcb_table[idx].id);
             }
-            else
+        }
+        else if (irq_type == IRQ2)
+        {
+            // desbloqueia o primeiro da fila D2
+            if (count_d2 > 0)
             {
-                dev = DEV_D2;
-            }
-            printf("kernel: recebido IRQ%d ; processo de entrada/saida finalizado no disp %d\n", irq_type, dev);
-
-            // procura quem estava bloqueado por esse dispositivo e libera
-            int dev_liberado = 0; // variavel de controle
-            for (int i = 0; i < N_PROCESSOS && dev_liberado == 0; i++)
-            {
-                if (pcb_table[i].state == BLOCKED && pcb_table[i].block_device == dev)
-                {
-                    pcb_table[i].state = READY;
-                    printf("kernel: processo A%d desbloqueado\n", pcb_table[i].id);
-                    dev_liberado = 1; // impede que o proximo processo seja liberado
-                }
+                int idx = blocked_queue_d2[head_d2];
+                head_d2 = (head_d2 + 1) % N_PROCESSOS;
+                count_d2--;
+                pcb_table[idx].state = READY;
+                printf("kernel: processo A%d desbloqueado (D2)\n", pcb_table[idx].id);
             }
         }
     }
