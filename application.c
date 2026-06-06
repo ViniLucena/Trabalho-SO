@@ -23,6 +23,19 @@ int main(int argc, char *argv[])
     {
         pc++;
         mem = rand() % MEM_SIZE; // escolhe m00-m15
+
+        // envia a atualizacao de contexto pro kernel
+        SyscallRequest ctx;
+        ctx.id = id;
+        ctx.op = 'U'; // U de update
+        ctx.pc = pc;
+        ctx.mem_address = mem;
+        ctx.device = 0; // irrelevante para operação de U
+
+        int pipe_fd = atoi(argv[2]);
+        write(pipe_fd, &ctx, sizeof(SyscallRequest));
+
+        kill(getppid(), SIGUSR1); // acorda o kernel para ler a atualização
         // simula o processamento
         usleep(500000);
 

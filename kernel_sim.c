@@ -107,6 +107,11 @@ void handle_syscall(int sig)
             }
             return;
         }
+        if (req.op == 'U')
+        {
+            // como o PC e a memoria foram alterados nas linhas de cima, encerra a funcao sem bloquear a aplicacao
+            return;
+        }
 
         pcb_table[idx].state = BLOCKED;
         pcb_table[idx].block_device = req.device;
