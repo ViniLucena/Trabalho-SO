@@ -16,10 +16,10 @@ Este roteiro documenta os passos para a extensão do KernelSim com paginação e
 
 ### Etapa 3: A Nova Lógica das Aplicações (`application.c`)
 
-- [ ] No loop de execução, adicionar 39% de probabilidade de a aplicação realizar um acesso à memória.
-- [ ] Sortear o novo índice de página (`mem` entre 0 e 15).
-- [ ] Definir a operação (Leitura/Escrita) com base no índice (`mem % 2`).
-- [ ] Enviar o pedido via `SyscallRequest` pelo `pipe_syscalls`.
+- [x] No loop de execução, adicionar 39% de probabilidade de a aplicação realizar um acesso à memória.
+- [x] Sortear o novo índice de página (`mem_acessada` entre 0 e 15).
+- [x] Definir a operação (Leitura/Escrita) com base no índice (`mem % 2`).
+- [x] Enviar o pedido via `SyscallRequest` pelo `pipe_syscalls`.
 
 ### Etapa 4: O Coração da Memória Virtual e Filas FCFS (`kernel_sim.c`)
 
