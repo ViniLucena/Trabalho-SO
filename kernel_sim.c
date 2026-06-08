@@ -20,6 +20,25 @@ int blocked_queue_d2[N_PROCESSOS];
 int head_d1 = 0, tail_d1 = 0, count_d1 = 0;
 int head_d2 = 0, tail_d2 = 0, count_d2 = 0;
 
+// trab 2: variáveis globais para o kernel
+int RAM[RAM_SIZE];
+int RAM_free[RAM_SIZE];
+PageTableEntry TPx[N_PROCESSOS][PAGE_TOTAL];
+
+// trab 2: estrutura para o disco de SWAP
+typedef struct
+{
+    int pid;
+    int idx;             // indice no PCB
+    int pagina_virtual;  // pagina que gerou o fault
+    int contador_espera; // 1 para fault normal, 2 se precisar gravar (double fault)
+    int quadro_alvo;     // quadro reservado na RAM
+} SwapRequest;
+
+// trab 2: fila para o disco de SWAP (Sw_queue)
+SwapRequest sw_queue[N_PROCESSOS];
+int head_sw = 0, tail_sw = 0, count_sw = 0;
+
 void handle_syscall(int sig);
 void handle_irq(int sig);
 void scheduler(void);
@@ -38,6 +57,23 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, handle_syscall);
     signal(SIGUSR2, handle_irq);
     signal(SIGTSTP, handle_display); // handler para ctrl+Z
+
+    // trab 2: inicializando a RAM e a tabela de páginas
+    for (int i = 0; i < RAM_SIZE; i++)
+    {
+        RAM_free[i] = 1; // livre
+        RAM[i] = -1;     // vazio
+    }
+    for (int i = 0; i < N_PROCESSOS; i++)
+    {
+        for (int j = 0; j < PAGE_TOTAL; j++)
+        {
+            TPx[i][j].valid = 0;
+            TPx[i][j].frame = -1;
+            TPx[i][j].modifyBit = 0;
+            TPx[i][j].when = 0;
+        }
+    }
 
     printf("kernel inicializado. FDs: Sys=%d, IRQ=%d\n", fd_syscalls, fd_irqs);
     // loop de criacao de processos
@@ -107,9 +143,70 @@ void handle_syscall(int sig)
             }
             return;
         }
+        // trab 2: caso a operacao seja 'U'
         if (req.op == 'U')
         {
             // como o PC e a memoria foram alterados nas linhas de cima, encerra a funcao sem bloquear a aplicacao
+            return;
+        }
+        // trab2: tratamento da memoria virtual
+        if (req.is_mem_access == 1)
+        {
+            int page = req.mem_address;
+            // caso do page hit
+            if (TPx[idx][page].valid == 1)
+            {
+                printf("kernel: PAGE HIT para A%d na pagina %d\n", req.id, page);
+                TPx[idx][page].when = req.pc;
+                if (req.op == 'W')
+                {
+                    TPx[idx][page].modifyBit = 1;
+                }
+                return;
+            }
+            // caso do page fault
+            printf("kernel: PAGE FAULT para A%d na pagina %d\n", req.id, page);
+            pcb_table[idx].page_faults++;
+
+            int free_frame = -1;
+            // procura um quadro livre na RAM
+            for (int i = 0; i < RAM_SIZE; i++)
+            {
+                if (RAM_free[i] == 1)
+                {
+                    free_frame = i;
+                    return;
+                }
+            }
+            int custo_espera = 1;
+
+            if (free_frame != -1)
+            {
+                RAM_free[free_frame] = 0;
+                RAM[free_frame] = idx;
+            }
+            else
+            {
+                printf("kernel: RAM CHEIA\n");
+            }
+            // coloca o pedido na fila FIFO do swap
+            sw_queue[tail_sw].pid = pcb_table[idx].pid;
+            sw_queue[tail_sw].idx = idx;
+            sw_queue[tail_sw].pagina_virtual = page;
+            sw_queue[tail_sw].contador_espera = custo_espera;
+            sw_queue[tail_sw].quadro_alvo = free_frame;
+
+            tail_sw = (tail_sw + 1) % N_PROCESSOS;
+            count_sw++;
+
+            // suspende o processo enquanto o disco de swap trabalha
+            pcb_table[idx].state = BLOCKED;
+            kill(pcb_table[idx].pid, SIGSTOP);
+            if (idx == running_process_idx)
+            {
+                running_process_idx = -1;
+                scheduler();
+            }
             return;
         }
 
@@ -206,6 +303,40 @@ void handle_irq(int sig)
                 count_d2--;
                 pcb_table[idx].state = READY;
                 printf("kernel: processo A%d desbloqueado (D2)\n", pcb_table[idx].id);
+            }
+        }
+        // trab 2: trata o caso pro IRQ3 (retorno do disco)
+        else if (irq_type == IRQ3)
+        {
+            if (count_sw > 0) // tem alguem esperando o swap
+            {
+                // decrementa a espera do primeiro da fila
+                sw_queue[head_sw].contador_espera--;
+                if (sw_queue[head_sw].contador_espera == 0)
+                {
+                    // terminou a leitura, aloca a pagina e acorda o processo
+                    int idx = sw_queue[head_sw].idx;
+                    int page = sw_queue[head_sw].pagina_virtual;
+                    int frame = sw_queue[head_sw].quadro_alvo;
+
+                    // atualiza a tabela de paginas do processo
+                    TPx[idx][page].valid = 1;
+                    TPx[idx][page].frame = frame;
+                    TPx[idx][page].modifyBit = 0;
+                    TPx[idx][page].when = pcb_table[idx].pc;
+
+                    // remove da fila
+                    head_sw = (head_sw + 1) % N_PROCESSOS;
+                    count_sw--;
+
+                    // acorda e devolve para o escalonador
+                    pcb_table[idx].state = READY;
+                    printf("kernel: page %d carregada para A%d no quadro %d (READY)\n", page, pcb_table[idx].id, frame);
+                }
+                else
+                {
+                    printf("kernel: IRQ3 concluiu o salvamento sujo de A%d (falta ler)\n", pcb_table[sw_queue[head_sw].idx].id);
+                }
             }
         }
     }

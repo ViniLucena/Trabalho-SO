@@ -19,6 +19,8 @@ int main(int argc, char *argv[])
 
     // inicializar semente aleatoria para cada processo
     srand(time(NULL) + id);
+
+    // trab 2: loop atualizado
     while (pc < MAX)
     {
         pc++;
@@ -108,6 +110,7 @@ int main(int argc, char *argv[])
             kill(getppid(), SIGUSR1);
         }
     }
+
     SyscallRequest fin;
     fin.id = id;
     fin.op = MSG_FINISHED;

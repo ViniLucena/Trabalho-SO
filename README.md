@@ -23,12 +23,12 @@ Este roteiro documenta os passos para a extensão do KernelSim com paginação e
 
 ### Etapa 4: O Coração da Memória Virtual e Filas FCFS (`kernel_sim.c`)
 
-- [ ] Criar globalmente: `RAM[32]`, `RAM_free[32]` e `TPx[5][16]`.
-- [ ] **Page Hit:** Se `access(mem, op)` e `valid == 1`, atualiza `when` e dá `SIGCONT` imediato.
-- [ ] **Page Fault:** Se `valid == 0`, busca em `RAM_free`. Se lotado, aciona algoritmo de substituição.
-- [ ] **Sw_Queue (FIFO):** Criar uma fila estruturada com `pid`, `pagina_virtual` e `contador_espera` (1 ou 2, baseado no `modifyBit` da página vítima).
-- [ ] **Tratar IRQ3:** Decrementar o `contador_espera` do primeiro da fila. Se zerar, aloca na RAM, atualiza a TPx e dá `SIGCONT`.
-- [ ] _Refatoração:_ Transformar as filas de D1 e D2 em FCFS reais (como feito na Sw_Queue).
+- [x] Criar globalmente: `RAM[32]`, `RAM_free[32]` e `TPx[5][16]`.
+- [x] **Page Hit:** Se `access(mem, op)` e `valid == 1`, atualiza `when`.
+- [x] **Page Fault:** Se `valid == 0`, busca em `RAM_free`. Se lotado, aciona algoritmo de substituição.
+- [x] **Sw_Queue (FIFO):** Criar uma fila estruturada com `pid`, `pagina_virtual` e `contador_espera` (1 ou 2, baseado no `modifyBit` da página vítima).
+- [x] **Tratar IRQ3:** Decrementar o `contador_espera` do primeiro da fila. Se zerar, aloca na RAM e atualiza a TPx.
+- [x] _Refatoração:_ Transformar as filas de D1 e D2 em FCFS reais (como feito na Sw_Queue).
 
 ### Etapa 5: Algoritmos de Substituição (`kernel_sim.c`)
 
