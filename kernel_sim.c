@@ -23,6 +23,7 @@ int head_d2 = 0, tail_d2 = 0, count_d2 = 0;
 // trab 2: variáveis globais para o kernel
 int RAM[RAM_SIZE];
 int RAM_free[RAM_SIZE];
+int RAM_page[RAM_SIZE];
 PageTableEntry TPx[N_PROCESSOS][PAGE_TOTAL];
 
 // trab 2: estrutura para o disco de SWAP
@@ -63,6 +64,7 @@ int main(int argc, char *argv[])
     {
         RAM_free[i] = 1; // livre
         RAM[i] = -1;     // vazio
+        RAM_page[i] = -1;
     }
     for (int i = 0; i < N_PROCESSOS; i++)
     {
@@ -170,12 +172,11 @@ void handle_syscall(int sig)
 
             int free_frame = -1;
             // procura um quadro livre na RAM
-            for (int i = 0; i < RAM_SIZE; i++)
+            for (int i = 0; i < RAM_SIZE && free_frame == -1; i++)
             {
                 if (RAM_free[i] == 1)
                 {
                     free_frame = i;
-                    return;
                 }
             }
             int custo_espera = 1;
@@ -184,6 +185,9 @@ void handle_syscall(int sig)
             {
                 RAM_free[free_frame] = 0;
                 RAM[free_frame] = idx;
+                RAM_page[free_frame] = page;
+
+                custo_espera = 1;
             }
             else
             {
@@ -308,34 +312,43 @@ void handle_irq(int sig)
         // trab 2: trata o caso pro IRQ3 (retorno do disco)
         else if (irq_type == IRQ3)
         {
-            if (count_sw > 0) // tem alguem esperando o swap
+            if (count_sw > 0)
             {
-                // decrementa a espera do primeiro da fila
                 sw_queue[head_sw].contador_espera--;
+
                 if (sw_queue[head_sw].contador_espera == 0)
                 {
-                    // terminou a leitura, aloca a pagina e acorda o processo
+                    // carrega a página e acorda o processo
                     int idx = sw_queue[head_sw].idx;
                     int page = sw_queue[head_sw].pagina_virtual;
                     int frame = sw_queue[head_sw].quadro_alvo;
 
-                    // atualiza a tabela de paginas do processo
                     TPx[idx][page].valid = 1;
                     TPx[idx][page].frame = frame;
                     TPx[idx][page].modifyBit = 0;
                     TPx[idx][page].when = pcb_table[idx].pc;
 
+                    pcb_table[idx].state = READY;
+
                     // remove da fila
                     head_sw = (head_sw + 1) % N_PROCESSOS;
                     count_sw--;
 
-                    // acorda e devolve para o escalonador
-                    pcb_table[idx].state = READY;
-                    printf("kernel: page %d carregada para A%d no quadro %d (READY)\n", page, pcb_table[idx].id, frame);
+                    printf("kernel: page %d carregada para A%d no quadro %d. (READY)\n", page, pcb_table[idx].id, frame);
                 }
                 else
                 {
-                    printf("kernel: IRQ3 concluiu o salvamento sujo de A%d (falta ler)\n", pcb_table[sw_queue[head_sw].idx].id);
+                    // remove da head e reinsere no final da fila
+                    SwapRequest temp = sw_queue[head_sw];
+
+                    head_sw = (head_sw + 1) % N_PROCESSOS;
+                    count_sw--;
+
+                    sw_queue[tail_sw] = temp;
+                    tail_sw = (tail_sw + 1) % N_PROCESSOS;
+                    count_sw++;
+
+                    printf("kernel: swap write concluido para A%d, reinserido na fila para leitura.\n", pcb_table[temp.idx].id);
                 }
             }
         }
@@ -374,6 +387,8 @@ void handle_display(int sig)
             printf("\ndisp=D%d op=%c\n", pcb_table[i].block_device + 1, pcb_table[i].block_op);
         }
         printf("\nD1=%d D2=%d\n", pcb_table[i].io_count[0], pcb_table[i].io_count[1]);
+        // trab 2: exibe os dados do trab 2
+        printf("Page Faults: %d - Double Faults: %d\n", pcb_table[i].page_faults, pcb_table[i].swap_double_faults);
     }
     printf("\nsistema retomando em 5 segundos\n");
     // ignora os sinais durante o sleep para nao ser acordado antes da hora
