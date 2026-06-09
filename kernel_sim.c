@@ -34,6 +34,7 @@ typedef struct
     int pagina_virtual;  // pagina que gerou o fault
     int contador_espera; // 1 para fault normal, 2 se precisar gravar (double fault)
     int quadro_alvo;     // quadro reservado na RAM
+    char operacao;
 } SwapRequest;
 
 // trab 2: fila para o disco de SWAP (Sw_queue)
@@ -226,8 +227,25 @@ void handle_syscall(int sig)
         pcb_table[idx].last_mem = req.mem_address;
 
         // caso seja uma syscall de termino
+        // caso seja uma syscall de termino
         if (req.op == MSG_FINISHED)
         {
+            // limpa a RAM ocupada por esse processo
+            for (int i = 0; i < RAM_SIZE; i++)
+            {
+                if (RAM[i] == idx)
+                {
+                    RAM_free[i] = 1;
+                    RAM[i] = -1;
+                    RAM_page[i] = -1;
+                }
+            }
+            // invalida a tabela de paginas dele
+            for (int j = 0; j < PAGE_TOTAL; j++)
+            {
+                TPx[idx][j].valid = 0;
+            }
+
             pcb_table[idx].state = FINISHED;
             printf("kernel: processo A%d terminou (estado=FINISHED)\n", req.id);
             if (idx == running_process_idx)
@@ -323,6 +341,7 @@ void handle_syscall(int sig)
             sw_queue[tail_sw].pagina_virtual = page;
             sw_queue[tail_sw].contador_espera = custo_espera;
             sw_queue[tail_sw].quadro_alvo = free_frame;
+            sw_queue[tail_sw].operacao = req.op;
 
             tail_sw = (tail_sw + 1) % N_PROCESSOS;
             count_sw++;
@@ -418,6 +437,8 @@ void handle_irq(int sig)
                 head_d1 = (head_d1 + 1) % N_PROCESSOS;
                 count_d1--;
                 pcb_table[idx].state = READY;
+                if (running_process_idx == -1)
+                    scheduler();
                 printf("kernel: processo A%d desbloqueado (D1)\n", pcb_table[idx].id);
             }
         }
@@ -430,6 +451,8 @@ void handle_irq(int sig)
                 head_d2 = (head_d2 + 1) % N_PROCESSOS;
                 count_d2--;
                 pcb_table[idx].state = READY;
+                if (running_process_idx == -1)
+                    scheduler();
                 printf("kernel: processo A%d desbloqueado (D2)\n", pcb_table[idx].id);
             }
         }
@@ -449,10 +472,19 @@ void handle_irq(int sig)
 
                     TPx[idx][page].valid = 1;
                     TPx[idx][page].frame = frame;
-                    TPx[idx][page].modifyBit = 0;
+                    if (sw_queue[head_sw].operacao == 'W')
+                    {
+                        TPx[idx][page].modifyBit = 1;
+                    }
+                    else
+                    {
+                        TPx[idx][page].modifyBit = 0;
+                    }
                     TPx[idx][page].when = pcb_table[idx].pc;
 
                     pcb_table[idx].state = READY;
+                    if (running_process_idx == -1)
+                        scheduler();
 
                     // remove da fila
                     head_sw = (head_sw + 1) % N_PROCESSOS;

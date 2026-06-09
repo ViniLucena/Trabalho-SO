@@ -14,41 +14,58 @@ int main(int argc, char *argv[])
         exit(1);
     }
     int id = atoi(argv[1]); // ID do processo (A1, A2, ...)
+    int pipe_fd = atoi(argv[2]);
     int pc = 0;
-    int mem;
 
     // inicializar semente aleatoria para cada processo
     srand(time(NULL) + id);
+    int mem = rand() % 16;
 
-    // trab 2: loop atualizado
+    // trab 2: loop atualizado para o novo escopo do trbalho
     while (pc < MAX)
     {
         pc++;
-        mem = rand() % MEM_SIZE; // escolhe m00-m15
-
-        // envia a atualizacao de contexto pro kernel
-        SyscallRequest ctx;
-        ctx.id = id;
-        ctx.op = 'U'; // U de update
-        ctx.pc = pc;
-        ctx.mem_address = mem;
-        ctx.is_mem_access = 0;
-        ctx.device = 0; // irrelevante para operacao de U
-
-        int pipe_fd = atoi(argv[2]);
-        write(pipe_fd, &ctx, sizeof(SyscallRequest));
-
-        kill(getppid(), SIGUSR1); // acorda o kernel para ler a atualização
-        // simula o processamento
-        usleep(500000);
-
-        int probabilidade = rand() % 100;
-
-        if (probabilidade < 5) // 5% de chance de syscall
+        char op;
+        // atualizacao
+        SyscallRequest update;
+        update.id = id;
+        update.op = 'U';
+        update.pc = pc;
+        update.mem_address = mem;
+        update.is_mem_access = 0;
+        write(pipe_fd, &update, sizeof(SyscallRequest));
+        kill(getppid(), SIGUSR1);
+        // 40% de chance de acessar nova página de memoria
+        if (rand() % 100 < 40)
         {
-            /* code */
+            mem = rand() % 16;
+            if (mem % 2 != 0)
+            {
+                op = 'R';
+            }
+            else
+            {
+                op = 'W';
+            }
+
+            SyscallRequest req; // instanciando o request
+            req.id = id;
+            req.pc = pc;
+            req.op = op;
+            req.is_mem_access = 1;
+            req.mem_address = mem;
+
+            write(pipe_fd, &req, sizeof(SyscallRequest));
+            kill(getppid(), SIGUSR1);
+            pause();
+        }
+        // 15% de chance de fazer I/O
+        int d = rand() % 100 + 1;
+        if (d < 15)
+        {
+            // define o dispositivo
             int device;
-            if (rand() % 2 == 0)
+            if (d % 2 != 0)
             {
                 device = DEV_D1;
             }
@@ -56,13 +73,12 @@ int main(int argc, char *argv[])
             {
                 device = DEV_D2;
             }
-            char op;
-            int r = rand() % 3;
-            if (r == 0)
+            // define a operacao
+            if (d % 3 == 1)
             {
                 op = 'R';
             }
-            else if (r == 1)
+            else if (d % 3 == 2)
             {
                 op = 'W';
             }
@@ -70,54 +86,27 @@ int main(int argc, char *argv[])
             {
                 op = 'X';
             }
+
             SyscallRequest req;
             req.id = id;
+            req.pc = pc;
             req.device = device;
             req.op = op;
-            req.mem_address = mem;
-            req.pc = pc;
-
-            // garantindo que o kernel saiba que é em disco, nao em memoria
             req.is_mem_access = 0;
-            int pipe_fd = atoi(argv[2]);
+            req.mem_address = mem;
+
             write(pipe_fd, &req, sizeof(SyscallRequest));
             kill(getppid(), SIGUSR1);
+            pause();
         }
-        else if (probabilidade >= 5 && probabilidade <= 43) // 39% de prob de acessar a memória (5 a 43)
-        {
-            // sorteia a pagina a ser acessada (0 a 15)
-            int mem_acessada = rand() % 16;
-            char op_mem;
-            if (mem_acessada % 2 == 0)
-            {
-                op_mem = 'R';
-            }
-            else
-            {
-                op_mem = 'W';
-            }
-            SyscallRequest req_mem;
-            req_mem.id = id;
-            req_mem.device = 0;
-            req_mem.op = op_mem;
-            req_mem.mem_address = mem_acessada;
-            req_mem.pc = pc;
-
-            req_mem.is_mem_access = 1;
-
-            int pipe_fd = atoi(argv[2]);
-            write(pipe_fd, &req_mem, sizeof(SyscallRequest));
-            kill(getppid(), SIGUSR1);
-        }
+        usleep(500000);
     }
-
     SyscallRequest fin;
     fin.id = id;
     fin.op = MSG_FINISHED;
     fin.pc = pc;
     fin.is_mem_access = 0;
 
-    int pipe_fd = atoi(argv[2]);
     write(pipe_fd, &fin, sizeof(SyscallRequest));
     kill(getppid(), SIGUSR1);
     printf("\nprocesso A%d terminado (PC =%d)\n", id, pc);
