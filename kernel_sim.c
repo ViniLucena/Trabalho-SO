@@ -263,7 +263,7 @@ void handle_syscall(int sig)
             pcb_table[idx].page_faults++;
 
             int free_frame = -1;
-            // procura um quadro livre na RAM
+            // procura um quadro livre na RAM parando assim que encontrar (free_frame != -1)
             for (int i = 0; i < RAM_SIZE && free_frame == -1; i++)
             {
                 if (RAM_free[i] == 1)
@@ -271,42 +271,52 @@ void handle_syscall(int sig)
                     free_frame = i;
                 }
             }
-            int custo_espera = 1;
 
+            // caso que tem frame livre
             if (free_frame != -1)
             {
                 RAM_free[free_frame] = 0;
                 RAM[free_frame] = idx;
                 RAM_page[free_frame] = page;
 
-                custo_espera = 1;
-            }
-            else
-            {
-                // caso da RAM cheia
-                free_frame = global_substitute();
-                int victim_idx = RAM[free_frame];
-                int victim_page = RAM_page[free_frame];
-
-                // verifica se a vitima estava suja (double fault)
-                if (TPx[victim_idx][victim_page].modifyBit == 1)
+                TPx[idx][page].valid = 1;
+                TPx[idx][page].frame = free_frame;
+                if (req.op == 'W')
                 {
-                    custo_espera = 2; // custo duplo: salvar no disco ler
-                    pcb_table[idx].swap_double_faults++;
-                    printf("kernel: [SWAP] vitima A%d(pag %d) SUJA. Custo=2 IRQ3\n", pcb_table[victim_idx].id, victim_page);
+                    TPx[idx][page].modifyBit = 1;
                 }
                 else
                 {
-                    custo_espera = 1; // apenas sobrescrever
-                    printf("kernel: [SWAP] vitima A%d(pag %d) LIMPA. Custo=1 IRQ3\n", pcb_table[victim_idx].id, victim_page);
+                    TPx[idx][page].modifyBit = 0;
                 }
-                // remove a vitima da tabela do dono antigo
-                TPx[victim_idx][victim_page].valid = 0;
-
-                // atribuindo o frame ao processo atual
-                RAM[free_frame] = idx;
-                RAM_page[free_frame] = page;
+                TPx[idx][page].when = pcb_table[idx].pc;
+                printf("kernel: frame livre encontrado - pagina %d alocada no quadro %d para A%d instantaneamente.\n", page, free_frame, pcb_table[idx].id);
+                kill(pcb_table[idx].pid, SIGCONT);
+                return;
             }
+            // caso da RAM cheia
+            free_frame = global_substitute();
+            int victim_idx = RAM[free_frame];
+            int victim_page = RAM_page[free_frame];
+            int custo_espera = 1;
+            // verifica se a vitima estava suja (double fault)
+            if (TPx[victim_idx][victim_page].modifyBit == 1)
+            {
+                custo_espera = 2; // custo duplo: salvar no disco ler
+                pcb_table[idx].swap_double_faults++;
+                printf("kernel: [SWAP] vitima A%d(pag %d) SUJA. Custo=2 IRQ3\n", pcb_table[victim_idx].id, victim_page);
+            }
+            else
+            {
+                custo_espera = 1; // apenas sobrescrever
+                printf("kernel: [SWAP] vitima A%d(pag %d) LIMPA. Custo=1 IRQ3\n", pcb_table[victim_idx].id, victim_page);
+            }
+            // remove a vitima da tabela do dono antigo
+            TPx[victim_idx][victim_page].valid = 0;
+
+            // atribuindo o frame ao processo atual
+            RAM[free_frame] = idx;
+            RAM_page[free_frame] = page;
             // coloca o pedido na fila FIFO do swap
             sw_queue[tail_sw].pid = pcb_table[idx].pid;
             sw_queue[tail_sw].idx = idx;
