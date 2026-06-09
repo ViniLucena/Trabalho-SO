@@ -222,13 +222,14 @@ void handle_syscall(int sig)
     {
         // identifica quem enviou a mensagem
         int idx = req.id - 1;
+        // garante que o processo fique bloqueado antes do kernel começar a tratar a chamada
+        kill(pcb_table[idx].pid, SIGSTOP);
         printf("kernel: syscall de A%d para disp %d (Op %c)\n", req.id, req.device, req.op);
 
         // atualiza o contexto
         pcb_table[idx].pc = req.pc;
         pcb_table[idx].last_mem = req.mem_address;
 
-        // caso seja uma syscall de termino
         // caso seja uma syscall de termino
         if (req.op == MSG_FINISHED)
         {
@@ -261,6 +262,7 @@ void handle_syscall(int sig)
         if (req.op == 'U')
         {
             // como o PC e a memoria foram alterados nas linhas de cima, encerra a funcao sem bloquear a aplicacao
+            kill(pcb_table[idx].pid, SIGCONT);
             return;
         }
         // trab2: tratamento da memoria virtual
