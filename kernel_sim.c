@@ -10,6 +10,8 @@ as filas de processos (prontos/bloqueados) e o tratamento de sinais SIGSTOP/SIGC
 #include <string.h>
 #include "common.h"
 
+#define USO_GLOBAL 1
+
 // variaveis globais para o kernel
 ProcessControlBlock pcb_table[N_PROCESSOS];
 int fd_syscalls, fd_irqs;
@@ -274,6 +276,7 @@ void handle_syscall(int sig)
                 {
                     TPx[idx][page].modifyBit = 1;
                 }
+                kill(pcb_table[idx].pid, SIGCONT);
                 return;
             }
             // caso do page fault
@@ -313,7 +316,14 @@ void handle_syscall(int sig)
                 return;
             }
             // caso da RAM cheia
-            free_frame = global_substitute();
+            if (USO_GLOBAL == 1)
+            {
+                free_frame = global_substitute();
+            }
+            else
+            {
+                free_frame = local_substitute(idx);
+            }
             int victim_idx = RAM[free_frame];
             int victim_page = RAM_page[free_frame];
             int custo_espera = 1;
