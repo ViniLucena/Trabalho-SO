@@ -32,10 +32,10 @@ Este roteiro documenta os passos para a extensão do KernelSim com paginação e
 
 ### Etapa 5: Algoritmos de Substituição (`kernel_sim.c`)
 
-- [ ] Implementar `global_substitute(RAM)`: escolhe vítimas de qualquer processo.
-- [ ] Implementar `local_substitute(RAM, id)`: escolhe vítimas apenas do processo que causou o fault.
-- [ ] Ambos os algoritmos devem preferir páginas limpas (`modifyBit == 0`) para evitar o custo duplo de swap (2x IRQ3).
+- [x] Implementar `global_substitute(RAM)`: escolhe vítimas de qualquer processo.
+- [x] Implementar `local_substitute(RAM, id)`: escolhe vítimas apenas do processo que causou o fault.
+- [x] Ambos os algoritmos devem preferir páginas limpas (`modifyBit == 0`) para evitar o custo duplo de swap (2x IRQ3).
 
 ### Etapa 6: Atualização do Monitoramento (Ctrl+Z)
 
-- [ ] Atualizar `handle_display` para imprimir também o total de _Page Faults_ e _Swap double faults_ (quantas vezes esperou 2x IRQ3) por processo.
+- [x] Atualizar `handle_display` para imprimir também o total de _Page Faults_ e _Swap double faults_ (quantas vezes esperou 2x IRQ3) por processo.

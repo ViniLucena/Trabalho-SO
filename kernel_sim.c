@@ -40,6 +40,8 @@ typedef struct
 SwapRequest sw_queue[N_PROCESSOS];
 int head_sw = 0, tail_sw = 0, count_sw = 0;
 
+int global_substitute(void);
+int local_substitute(int req_idx);
 void handle_syscall(int sig);
 void handle_irq(int sig);
 void scheduler(void);
@@ -119,6 +121,96 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+// trab 2: usa substituição global para escolher o melhor frame analisando todos os frames da RAM
+int global_substitute(void)
+{
+    int oldest_clean_frame = -1;
+    int oldest_dirty_frame = -1;
+    int min_when_clean = 9999999;
+    int min_when_dirty = 9999999;
+
+    for (int i = 0; i < RAM_SIZE; i++)
+    {
+        int p_idx = RAM[i];
+        // só analisa o frame se ele nao estiver vazio
+        if (p_idx != -1)
+        {
+            int page = RAM_page[i];
+            int pag_suja = TPx[p_idx][page].modifyBit;
+            int when = TPx[p_idx][page].when;
+
+            if (pag_suja == 0)
+            {
+                if (when < min_when_clean)
+                {
+                    min_when_clean = when;
+                    oldest_clean_frame = i;
+                }
+            }
+            else
+            {
+                if (when < min_when_dirty)
+                {
+                    min_when_dirty = when;
+                    oldest_dirty_frame = i;
+                }
+            }
+        }
+    }
+    if (oldest_clean_frame != -1)
+    {
+        return oldest_clean_frame;
+    }
+
+    return oldest_dirty_frame;
+}
+
+// trab 2: usa substituição local para escolher o melhor frame analisando todos os frames do próprio processo
+int local_substitute(int req_idx)
+{
+    int oldest_clean_frame = -1;
+    int oldest_dirty_frame = -1;
+    int min_when_clean = 9999999;
+    int min_when_dirty = 9999999;
+
+    for (int i = 0; i < RAM_SIZE; i++)
+    {
+        int p_idx = RAM[i];
+        if (p_idx == req_idx)
+        {
+            int page = RAM_page[i];
+            int pag_suja = TPx[p_idx][page].modifyBit;
+            int when = TPx[p_idx][page].when;
+            if (pag_suja == 0)
+            {
+                if (when < min_when_clean)
+                {
+                    min_when_clean = when;
+                    oldest_clean_frame = i;
+                }
+            }
+            else
+            {
+                if (when < min_when_dirty)
+                {
+                    min_when_dirty = when;
+                    oldest_dirty_frame = i;
+                }
+            }
+        }
+    }
+    if (oldest_clean_frame != -1)
+    {
+        return oldest_clean_frame;
+    }
+    if (oldest_dirty_frame != -1)
+    {
+        return oldest_dirty_frame;
+    }
+    // fallback: caso o processo nao tenha paginas na RAM e tenha causado fault
+    return global_substitute();
+}
+
 void handle_syscall(int sig)
 {
     SyscallRequest req;
@@ -191,7 +283,29 @@ void handle_syscall(int sig)
             }
             else
             {
-                printf("kernel: RAM CHEIA\n");
+                // caso da RAM cheia
+                free_frame = global_substitute();
+                int victim_idx = RAM[free_frame];
+                int victim_page = RAM_page[free_frame];
+
+                // verifica se a vitima estava suja (double fault)
+                if (TPx[victim_idx][victim_page].modifyBit == 1)
+                {
+                    custo_espera = 2; // custo duplo: salvar no disco ler
+                    pcb_table[idx].swap_double_faults++;
+                    printf("kernel: [SWAP] vitima A%d(pag %d) SUJA. Custo=2 IRQ3\n", pcb_table[victim_idx].id, victim_page);
+                }
+                else
+                {
+                    custo_espera = 1; // apenas sobrescrever
+                    printf("kernel: [SWAP] vitima A%d(pag %d) LIMPA. Custo=1 IRQ3\n", pcb_table[victim_idx].id, victim_page);
+                }
+                // remove a vitima da tabela do dono antigo
+                TPx[victim_idx][victim_page].valid = 0;
+
+                // atribuindo o frame ao processo atual
+                RAM[free_frame] = idx;
+                RAM_page[free_frame] = page;
             }
             // coloca o pedido na fila FIFO do swap
             sw_queue[tail_sw].pid = pcb_table[idx].pid;
