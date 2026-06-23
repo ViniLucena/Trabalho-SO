@@ -57,7 +57,6 @@ int main(int argc, char *argv[])
 
             write(pipe_fd, &req, sizeof(SyscallRequest));
             kill(getppid(), SIGUSR1);
-            pause();
         }
         // 15% de chance de fazer I/O
         int d = rand() % 100 + 1;
@@ -97,7 +96,6 @@ int main(int argc, char *argv[])
 
             write(pipe_fd, &req, sizeof(SyscallRequest));
             kill(getppid(), SIGUSR1);
-            pause();
         }
         usleep(500000);
     }

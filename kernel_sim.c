@@ -137,7 +137,7 @@ int global_substitute(int RAM[])
     {
         int p_idx = RAM[i];
         // só analisa o frame se ele nao estiver vazio
-        if (p_idx != -1)
+        if (p_idx != -1 && p_idx != -2)
         {
             int page = RAM_page[i];
             int pag_suja = TPx[p_idx][page].modifyBit;
@@ -180,7 +180,7 @@ int local_substitute(int RAM[])
     for (int i = 0; i < RAM_SIZE; i++)
     {
         int p_idx = RAM[i];
-        if (p_idx == req_idx)
+        if (p_idx == req_idx && p_idx != -2)
         {
             int page = RAM_page[i];
             int pag_suja = TPx[p_idx][page].modifyBit;
@@ -347,8 +347,9 @@ void handle_syscall(int sig)
             TPx[victim_idx][victim_page].valid = 0;
 
             // atribuindo o frame ao processo atual
-            RAM[free_frame] = idx;
-            RAM_page[free_frame] = page;
+            RAM[free_frame] = -2;
+            RAM_page[free_frame] = -2;
+            RAM_free[free_frame] = 0;
             // coloca o pedido na fila FIFO do swap
             sw_queue[tail_sw].pid = pcb_table[idx].pid;
             sw_queue[tail_sw].idx = idx;
@@ -495,6 +496,9 @@ void handle_irq(int sig)
                         TPx[idx][page].modifyBit = 0;
                     }
                     TPx[idx][page].when = pcb_table[idx].pc;
+                    RAM[frame] = idx;
+                    RAM_page[frame] = page;
+                    RAM_free[frame] = 0;
 
                     pcb_table[idx].state = READY;
                     if (running_process_idx == -1)
