@@ -16,6 +16,7 @@ as filas de processos (prontos/bloqueados) e o tratamento de sinais SIGSTOP/SIGC
 ProcessControlBlock pcb_table[N_PROCESSOS];
 int fd_syscalls, fd_irqs;
 int running_process_idx = -1;
+int req_idx;
 
 int blocked_queue_d1[N_PROCESSOS];
 int blocked_queue_d2[N_PROCESSOS];
@@ -43,8 +44,8 @@ typedef struct
 SwapRequest sw_queue[N_PROCESSOS];
 int head_sw = 0, tail_sw = 0, count_sw = 0;
 
-int global_substitute(void);
-int local_substitute(int req_idx);
+int global_substitute(int RAM[]);
+int local_substitute(int RAM[]);
 void handle_syscall(int sig);
 void handle_irq(int sig);
 void scheduler(void);
@@ -125,7 +126,7 @@ int main(int argc, char *argv[])
 }
 
 // trab 2: usa substituição global para escolher o melhor frame analisando todos os frames da RAM
-int global_substitute(void)
+int global_substitute(int RAM[])
 {
     int oldest_clean_frame = -1;
     int oldest_dirty_frame = -1;
@@ -169,7 +170,7 @@ int global_substitute(void)
 }
 
 // trab 2: usa substituição local para escolher o melhor frame analisando todos os frames do próprio processo
-int local_substitute(int req_idx)
+int local_substitute(int RAM[])
 {
     int oldest_clean_frame = -1;
     int oldest_dirty_frame = -1;
@@ -211,7 +212,7 @@ int local_substitute(int req_idx)
         return oldest_dirty_frame;
     }
     // fallback: caso o processo nao tenha paginas na RAM e tenha causado fault
-    return global_substitute();
+    return global_substitute(RAM);
 }
 
 void handle_syscall(int sig)
@@ -320,11 +321,12 @@ void handle_syscall(int sig)
             // caso da RAM cheia
             if (USO_GLOBAL == 1)
             {
-                free_frame = global_substitute();
+                free_frame = global_substitute(RAM);
             }
             else
             {
-                free_frame = local_substitute(idx);
+                req_idx = idx;
+                free_frame = local_substitute(RAM);
             }
             int victim_idx = RAM[free_frame];
             int victim_page = RAM_page[free_frame];
